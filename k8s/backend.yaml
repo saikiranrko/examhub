@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: examhub-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: examhub-backend
+  template:
+    metadata:
+      labels:
+        app: examhub-backend
+    spec:
+      containers:
+      - name: backend
+        image: examhubregistry.azurecr.io/examhub-backend:latest
+        ports:
+        - containerPort: 8000
+        env:
+        - name: DATABASE_URL
+          value: "mssql+pyodbc://examhubadmin:ExamHub%402024!@examhub-sqlserver.database.windows.net/examhubdb?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes&Connect+Timeout=30"
+        - name: SECRET_KEY
+          value: "examhub-super-secret-key-2024"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: examhub-backend-service
+spec:
+  selector:
+    app: examhub-backend
+  ports:
+  - port: 80
+    targetPort: 8000
+  type: LoadBalancer
