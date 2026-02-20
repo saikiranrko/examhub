@@ -3,17 +3,17 @@ kind: Ingress
 metadata:
   name: examhub-ingress
   annotations:
-    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
-    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
     cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
 spec:
   ingressClassName: nginx
   tls:
   - hosts:
-    - examhub.20.221.112.0.nip.io
-    secretName: examhub-tls
+    - examhub.centralus.cloudapp.azure.com
+    secretName: examhub-tls-v3
   rules:
-  - host: examhub.20.221.112.0.nip.io
+  - host: examhub.centralus.cloudapp.azure.com
     http:
       paths:
       - path: /api

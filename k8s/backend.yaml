@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
   name: examhub-backend
 spec:
-  replicas: 1
+  replicas: 3
   selector:
     matchLabels:
       app: examhub-backend
@@ -19,9 +19,26 @@ spec:
         - containerPort: 8000
         env:
         - name: DATABASE_URL
-          value: "mssql+pyodbc://examhubadmin:ExamHub%402024!@examhub-sqlserver.database.windows.net/examhubdb?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes&Connect+Timeout=30"
+          valueFrom:
+            secretKeyRef:
+              name: examhub-secrets
+              key: DATABASE_URL
         - name: SECRET_KEY
-          value: "examhub-super-secret-key-2024"
+          valueFrom:
+            secretKeyRef:
+              name: examhub-secrets
+              key: SECRET_KEY
+        volumeMounts:
+        - name: secrets-store
+          mountPath: "/mnt/secrets-store"
+          readOnly: true
+      volumes:
+      - name: secrets-store
+        csi:
+          driver: secrets-store.csi.k8s.io
+          readOnly: true
+          volumeAttributes:
+            secretProviderClass: examhub-keyvault-secrets
 ---
 apiVersion: v1
 kind: Service
@@ -33,4 +50,4 @@ spec:
   ports:
   - port: 80
     targetPort: 8000
-  type: LoadBalancer
+  type: ClusterIP

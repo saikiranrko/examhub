@@ -1,55 +1,59 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import API from '../api/client';
 
 export default function Register() {
-  const [form, setForm] = useState({ email:'', password:'', full_name:'' });
+  const [form, setForm] = useState({ full_name:'', email:'', password:'' });
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [success, setSuccess] = useState(false);
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleRegister = async (e) => {
     e.preventDefault();
+    setLoading(true); setError('');
     try {
-      await API.post(`/api/auth/register?email=${form.email}&password=${form.password}&full_name=${encodeURIComponent(form.full_name)}&role=student`);
-      setSuccess('Account created! Redirecting to login...');
+      await API.post(`/api/auth/register?email=${encodeURIComponent(form.email)}&password=${encodeURIComponent(form.password)}&full_name=${encodeURIComponent(form.full_name)}&role=student`);
+      setSuccess(true);
       setTimeout(() => navigate('/'), 2000);
     } catch (err) {
       setError(err.response?.data?.detail || 'Registration failed');
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div style={{width:'100vw', height:'100vh', display:'flex', justifyContent:'center', alignItems:'center', background:'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)'}}>
-      <div style={{background:'white', padding:'48px 40px', borderRadius:'20px', boxShadow:'0 20px 60px rgba(0,0,0,0.4)', width:'100%', maxWidth:'420px', margin:'0 20px'}}>
-        <div style={{textAlign:'center', marginBottom:'32px'}}>
-          <div style={{fontSize:'48px', marginBottom:'8px'}}>📝</div>
-          <h1 style={{fontSize:'28px', fontWeight:'700', color:'#1a1a2e'}}>Create Account</h1>
-          <p style={{color:'#888', marginTop:'6px'}}>Join ExamHub as a student</p>
+    <div style={{ minHeight:'100vh', background:'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)', display:'flex', alignItems:'center', justifyContent:'center', padding:'16px' }}>
+      <div style={{ background:'white', borderRadius:'20px', padding:'clamp(24px, 5vw, 40px)', width:'100%', maxWidth:'420px', boxShadow:'0 25px 50px rgba(0,0,0,0.3)' }}>
+        <div style={{ textAlign:'center', marginBottom:'28px' }}>
+          <div style={{ fontSize:'40px', marginBottom:'12px' }}>🎓</div>
+          <h1 style={{ margin:'0 0 6px', fontSize:'clamp(22px, 4vw, 28px)', fontWeight:'700', color:'#0f172a' }}>Create Account</h1>
+          <p style={{ margin:0, color:'#64748b', fontSize:'14px' }}>Join ExamHub as a student</p>
         </div>
-
-        {error && <div style={{background:'#fff5f5', border:'1px solid #fed7d7', color:'#c53030', padding:'12px', borderRadius:'8px', marginBottom:'16px', fontSize:'14px', textAlign:'center'}}>{error}</div>}
-        {success && <div style={{background:'#f0fff4', border:'1px solid #9ae6b4', color:'#276749', padding:'12px', borderRadius:'8px', marginBottom:'16px', fontSize:'14px', textAlign:'center'}}>{success}</div>}
-
+        {error && <div style={{ background:'#fee2e2', color:'#991b1b', padding:'12px', borderRadius:'10px', marginBottom:'16px', fontSize:'14px', textAlign:'center' }}>{error}</div>}
+        {success && <div style={{ background:'#dcfce7', color:'#166534', padding:'12px', borderRadius:'10px', marginBottom:'16px', fontSize:'14px', textAlign:'center' }}>✅ Account created! Redirecting...</div>}
         <form onSubmit={handleRegister}>
-          <div style={{marginBottom:'16px'}}>
-            <label style={{display:'block', marginBottom:'6px', fontSize:'14px', fontWeight:'600', color:'#333'}}>Full Name</label>
-            <input type="text" placeholder="Enter your full name" value={form.full_name} onChange={e => setForm({...form, full_name:e.target.value})} required style={{width:'100%', padding:'12px 16px', borderRadius:'10px', border:'2px solid #eee', fontSize:'15px', outline:'none'}} />
-          </div>
-          <div style={{marginBottom:'16px'}}>
-            <label style={{display:'block', marginBottom:'6px', fontSize:'14px', fontWeight:'600', color:'#333'}}>Email</label>
-            <input type="email" placeholder="Enter your email" value={form.email} onChange={e => setForm({...form, email:e.target.value})} required style={{width:'100%', padding:'12px 16px', borderRadius:'10px', border:'2px solid #eee', fontSize:'15px', outline:'none'}} />
-          </div>
-          <div style={{marginBottom:'24px'}}>
-            <label style={{display:'block', marginBottom:'6px', fontSize:'14px', fontWeight:'600', color:'#333'}}>Password</label>
-            <input type="password" placeholder="Enter your password" value={form.password} onChange={e => setForm({...form, password:e.target.value})} required style={{width:'100%', padding:'12px 16px', borderRadius:'10px', border:'2px solid #eee', fontSize:'15px', outline:'none'}} />
-          </div>
-          <button type="submit" style={{width:'100%', padding:'14px', background:'linear-gradient(135deg, #667eea, #764ba2)', color:'white', border:'none', borderRadius:'10px', fontSize:'16px', fontWeight:'700', cursor:'pointer'}}>
-            Create Account →
+          {[
+            { label:'Full Name', key:'full_name', type:'text', placeholder:'Enter your full name' },
+            { label:'Email', key:'email', type:'email', placeholder:'Enter your email' },
+            { label:'Password', key:'password', type:'password', placeholder:'Create a password' },
+          ].map(f => (
+            <div key={f.key} style={{ marginBottom:'16px' }}>
+              <label style={{ display:'block', marginBottom:'6px', fontSize:'14px', fontWeight:'500', color:'#374151' }}>{f.label}</label>
+              <input type={f.type} value={form[f.key]} onChange={e => setForm({...form, [f.key]:e.target.value})} required placeholder={f.placeholder}
+                style={{ width:'100%', padding:'12px 14px', borderRadius:'10px', border:'1px solid #e2e8f0', fontSize:'16px', outline:'none', boxSizing:'border-box' }}
+                onFocus={e => e.target.style.borderColor='#6366f1'}
+                onBlur={e => e.target.style.borderColor='#e2e8f0'}
+              />
+            </div>
+          ))}
+          <button type="submit" disabled={loading} style={{ width:'100%', padding:'14px', background:'linear-gradient(135deg, #6366f1, #8b5cf6)', color:'white', border:'none', borderRadius:'10px', fontSize:'16px', fontWeight:'600', cursor:'pointer', marginTop:'8px', opacity: loading ? 0.7 : 1 }}>
+            {loading ? 'Creating Account...' : 'Create Account →'}
           </button>
         </form>
-        <p style={{textAlign:'center', marginTop:'20px', fontSize:'14px', color:'#888'}}>
-          Already have an account? <Link to="/" style={{color:'#667eea', fontWeight:'600'}}>Login</Link>
+        <p style={{ textAlign:'center', marginTop:'20px', fontSize:'14px', color:'#64748b' }}>
+          Already have an account? <span onClick={() => navigate('/')} style={{ color:'#6366f1', fontWeight:'600', cursor:'pointer' }}>Login</span>
         </p>
       </div>
     </div>

@@ -13,7 +13,7 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 def create_token(data: dict):
     to_encode = data.copy()
-    to_encode["exp"] = datetime.utcnow() + timedelta(hours=24)
+    to_encode["exp"] = datetime.utcnow() + timedelta(days=30)
     return jwt.encode(to_encode, settings.SECRET_KEY, algorithm="HS256")
 
 @router.post("/register")

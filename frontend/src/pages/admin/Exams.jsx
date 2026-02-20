@@ -1,170 +1,177 @@
 import { useState, useEffect } from 'react';
 import Sidebar from '../../components/Sidebar';
-import ToastContainer, { useToast } from '../../components/Toast';
 import API from '../../api/client';
 
 export default function AdminExams() {
   const [exams, setExams] = useState([]);
-  const [questions, setQuestions] = useState([]);
-  const [selectedExam, setSelectedExam] = useState(null);
   const [showForm, setShowForm] = useState(false);
-  const [editExam, setEditExam] = useState(null);
+  const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({ title:'', description:'', time_limit:30 });
+  const [selectedExam, setSelectedExam] = useState(null);
+  const [questions, setQuestions] = useState([]);
   const [qForm, setQForm] = useState({ text:'', option_a:'', option_b:'', option_c:'', option_d:'', correct_answer:'A' });
-  const { toasts, success, error } = useToast();
+  const [loading, setLoading] = useState(false);
 
-  const fetchExams = () => API.get('/api/exams/all').then(r => setExams(r.data));
+  const fetchExams = () => API.get('/api/exams/').then(r => setExams(r.data));
   useEffect(() => { fetchExams(); }, []);
 
-  const fetchQuestions = (examId) => {
-    API.get(`/api/questions/${examId}`).then(r => setQuestions(r.data));
-    setSelectedExam(examId);
-  };
+  const fetchQuestions = (examId) => API.get(`/api/questions/${examId}`).then(r => setQuestions(r.data));
 
-  const saveExam = async (e) => {
-    e.preventDefault();
+  const saveExam = async () => {
+    setLoading(true);
     try {
-      if (editExam) {
-        await API.put(`/api/exams/${editExam.id}?title=${encodeURIComponent(form.title)}&description=${encodeURIComponent(form.description)}&time_limit=${form.time_limit}`);
-        success('Exam updated!');
+      if (editing) {
+        await API.put(`/api/exams/${editing}`, form);
       } else {
         await API.post(`/api/exams/?title=${encodeURIComponent(form.title)}&description=${encodeURIComponent(form.description)}&time_limit=${form.time_limit}`);
-        success('Exam created!');
       }
-      setForm({ title:'', description:'', time_limit:30 });
-      setShowForm(false); setEditExam(null);
-      fetchExams();
-    } catch { error('Failed to save exam'); }
+      fetchExams(); setShowForm(false); setEditing(null); setForm({ title:'', description:'', time_limit:30 });
+    } finally { setLoading(false); }
   };
 
   const deleteExam = async (id) => {
-    if (!window.confirm('Delete this exam and all its questions?')) return;
+    if (!window.confirm('Delete this exam?')) return;
     await API.delete(`/api/exams/${id}`);
-    success('Exam deleted');
-    if (selectedExam === id) { setSelectedExam(null); setQuestions([]); }
     fetchExams();
+    if (selectedExam?.id === id) setSelectedExam(null);
   };
 
-  const addQuestion = async (e) => {
-    e.preventDefault();
+  const addQuestion = async () => {
+    setLoading(true);
     try {
-      await API.post(`/api/questions/?exam_id=${selectedExam}&text=${encodeURIComponent(qForm.text)}&option_a=${encodeURIComponent(qForm.option_a)}&option_b=${encodeURIComponent(qForm.option_b)}&option_c=${encodeURIComponent(qForm.option_c)}&option_d=${encodeURIComponent(qForm.option_d)}&correct_answer=${qForm.correct_answer}`);
+      const p = new URLSearchParams({ ...qForm, exam_id: selectedExam.id });
+      await API.post(`/api/questions/?${p}`);
+      fetchQuestions(selectedExam.id);
       setQForm({ text:'', option_a:'', option_b:'', option_c:'', option_d:'', correct_answer:'A' });
-      success('Question added!');
-      fetchQuestions(selectedExam);
-    } catch { error('Failed to add question'); }
+    } finally { setLoading(false); }
   };
 
   const deleteQuestion = async (qId) => {
     await API.delete(`/api/questions/${qId}`);
-    success('Question deleted');
-    fetchQuestions(selectedExam);
+    fetchQuestions(selectedExam.id);
   };
-
-  const inp = { padding:'10px 14px', borderRadius:'8px', border:'1px solid #e2e8f0', fontSize:'14px', width:'100%', boxSizing:'border-box', outline:'none' };
 
   return (
     <div style={{ display:'flex', background:'#f8fafc', minHeight:'100vh' }}>
       <Sidebar role="admin" />
-      <ToastContainer toasts={toasts} />
-      <div style={{ marginLeft:'240px', flex:1, padding:'32px' }}>
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'28px' }}>
+      <div className="main-content" style={{ marginLeft:'220px', flex:1, padding:'24px', minWidth:0, overflowX:'hidden' }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'24px', flexWrap:'wrap', gap:'12px' }}>
           <div>
-            <h1 style={{ margin:'0 0 4px', fontSize:'24px', fontWeight:'700', color:'#0f172a' }}>Exams</h1>
-            <p style={{ margin:0, color:'#64748b', fontSize:'14px' }}>{exams.length} exams total</p>
+            <h1 style={{ margin:'0 0 4px', fontSize:'clamp(18px,3vw,24px)', fontWeight:'700', color:'#0f172a' }}>Exams</h1>
+            <p style={{ margin:0, color:'#64748b', fontSize:'14px' }}>{exams.length} total exams</p>
           </div>
-          <button onClick={() => { setShowForm(true); setEditExam(null); setForm({ title:'', description:'', time_limit:30 }); }} style={{ padding:'10px 20px', background:'#6366f1', color:'white', border:'none', borderRadius:'10px', cursor:'pointer', fontWeight:'600', fontSize:'14px' }}>
+          <button onClick={() => { setShowForm(true); setEditing(null); setForm({ title:'', description:'', time_limit:30 }); }} style={{ padding:'10px 20px', background:'linear-gradient(135deg,#6366f1,#8b5cf6)', color:'white', border:'none', borderRadius:'10px', cursor:'pointer', fontWeight:'600', fontSize:'14px', whiteSpace:'nowrap' }}>
             + New Exam
           </button>
         </div>
 
+        {/* Exam Form Modal */}
         {showForm && (
-          <div style={{ background:'white', padding:'24px', borderRadius:'14px', border:'1px solid #e2e8f0', marginBottom:'24px', boxShadow:'0 4px 20px rgba(0,0,0,0.08)' }}>
-            <h3 style={{ margin:'0 0 20px', color:'#0f172a' }}>{editExam ? 'Edit Exam' : 'Create New Exam'}</h3>
-            <form onSubmit={saveExam}>
-              <div style={{ display:'grid', gridTemplateColumns:'2fr 2fr 1fr', gap:'12px', marginBottom:'16px' }}>
-                <input style={inp} placeholder="Exam title *" value={form.title} onChange={e => setForm({...form, title:e.target.value})} required />
-                <input style={inp} placeholder="Description" value={form.description} onChange={e => setForm({...form, description:e.target.value})} />
-                <input style={inp} type="number" placeholder="Minutes" value={form.time_limit} onChange={e => setForm({...form, time_limit:e.target.value})} />
+          <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', padding:'16px' }}>
+            <div style={{ background:'white', borderRadius:'16px', padding:'24px', width:'100%', maxWidth:'480px' }}>
+              <h3 style={{ margin:'0 0 20px', fontSize:'18px', fontWeight:'700', color:'#0f172a' }}>{editing ? 'Edit Exam' : 'New Exam'}</h3>
+              {[
+                { label:'Title', key:'title', type:'text' },
+                { label:'Description', key:'description', type:'text' },
+                { label:'Time Limit (minutes)', key:'time_limit', type:'number' },
+              ].map(f => (
+                <div key={f.key} style={{ marginBottom:'14px' }}>
+                  <label style={{ display:'block', marginBottom:'6px', fontSize:'13px', fontWeight:'500', color:'#374151' }}>{f.label}</label>
+                  <input type={f.type} value={form[f.key]} onChange={e => setForm({...form, [f.key]: f.type==='number' ? parseInt(e.target.value) : e.target.value})}
+                    style={{ width:'100%', padding:'10px 12px', border:'1px solid #e2e8f0', borderRadius:'8px', fontSize:'14px', boxSizing:'border-box' }} />
+                </div>
+              ))}
+              <div style={{ display:'flex', gap:'10px', marginTop:'20px' }}>
+                <button onClick={() => setShowForm(false)} style={{ flex:1, padding:'11px', background:'#f1f5f9', color:'#475569', border:'none', borderRadius:'9px', cursor:'pointer', fontWeight:'600' }}>Cancel</button>
+                <button onClick={saveExam} disabled={loading} style={{ flex:1, padding:'11px', background:'linear-gradient(135deg,#6366f1,#8b5cf6)', color:'white', border:'none', borderRadius:'9px', cursor:'pointer', fontWeight:'600' }}>{loading ? 'Saving...' : 'Save'}</button>
               </div>
-              <div style={{ display:'flex', gap:'10px' }}>
-                <button type="submit" style={{ padding:'10px 24px', background:'#6366f1', color:'white', border:'none', borderRadius:'8px', cursor:'pointer', fontWeight:'600' }}>Save Exam</button>
-                <button type="button" onClick={() => setShowForm(false)} style={{ padding:'10px 24px', background:'#f1f5f9', color:'#475569', border:'none', borderRadius:'8px', cursor:'pointer' }}>Cancel</button>
-              </div>
-            </form>
+            </div>
           </div>
         )}
 
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(280px, 1fr))', gap:'16px', marginBottom:'32px' }}>
-          {exams.map(e => (
-            <div key={e.id} style={{ background:'white', padding:'20px', borderRadius:'14px', border: selectedExam===e.id ? '2px solid #6366f1' : '1px solid #e2e8f0', boxShadow:'0 1px 4px rgba(0,0,0,0.04)', cursor:'pointer' }}>
-              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:'12px' }}>
-                <h3 style={{ margin:0, fontSize:'15px', fontWeight:'600', color:'#0f172a' }}>{e.title}</h3>
-                <span style={{ padding:'3px 8px', borderRadius:'20px', fontSize:'11px', fontWeight:'600', background: e.is_active ? '#dcfce7' : '#fee2e2', color: e.is_active ? '#166534' : '#991b1b' }}>
-                  {e.is_active ? 'Active' : 'Inactive'}
-                </span>
+        <div style={{ display:'grid', gridTemplateColumns: selectedExam ? '1fr' : 'repeat(auto-fill, minmax(280px,1fr))', gap:'16px', marginBottom:'24px' }}>
+          {!selectedExam && exams.map(e => (
+            <div key={e.id} style={{ background:'white', padding:'20px', borderRadius:'14px', border:'1px solid #e2e8f0', boxShadow:'0 1px 4px rgba(0,0,0,0.04)' }}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:'10px' }}>
+                <h3 style={{ margin:0, fontSize:'15px', fontWeight:'600', color:'#0f172a', flex:1, marginRight:'8px' }}>{e.title}</h3>
+                <span style={{ padding:'3px 10px', background:'#dcfce7', color:'#166534', borderRadius:'20px', fontSize:'11px', fontWeight:'600', whiteSpace:'nowrap' }}>Active</span>
               </div>
               <p style={{ margin:'0 0 12px', fontSize:'13px', color:'#64748b' }}>{e.description || 'No description'}</p>
-              <div style={{ display:'flex', gap:'12px', fontSize:'12px', color:'#94a3b8', marginBottom:'16px' }}>
+              <div style={{ display:'flex', gap:'12px', marginBottom:'14px', fontSize:'12px', color:'#64748b' }}>
                 <span>⏱ {e.time_limit} mins</span>
-                <span>❓ {e.question_count} questions</span>
-                <span>👤 {e.attempt_count} attempts</span>
+                <span>❓ {e.question_count || 0} questions</span>
               </div>
-              <div style={{ display:'flex', gap:'8px' }}>
-                <button onClick={() => fetchQuestions(e.id)} style={{ flex:1, padding:'8px', background:'#6366f1', color:'white', border:'none', borderRadius:'7px', cursor:'pointer', fontSize:'13px', fontWeight:'500' }}>Manage Questions</button>
-                <button onClick={() => { setEditExam(e); setForm({ title:e.title, description:e.description, time_limit:e.time_limit }); setShowForm(true); }} style={{ padding:'8px 12px', background:'#f8fafc', color:'#475569', border:'1px solid #e2e8f0', borderRadius:'7px', cursor:'pointer', fontSize:'13px' }}>✏️</button>
-                <button onClick={() => deleteExam(e.id)} style={{ padding:'8px 12px', background:'#fff5f5', color:'#ef4444', border:'1px solid #fecaca', borderRadius:'7px', cursor:'pointer', fontSize:'13px' }}>🗑</button>
+              <div style={{ display:'flex', gap:'8px', flexWrap:'wrap' }}>
+                <button onClick={() => { setSelectedExam(e); fetchQuestions(e.id); }} style={{ flex:1, minWidth:'80px', padding:'9px', background:'#eef2ff', color:'#6366f1', border:'none', borderRadius:'8px', cursor:'pointer', fontWeight:'600', fontSize:'13px' }}>Questions</button>
+                <button onClick={() => { setEditing(e.id); setForm({ title:e.title, description:e.description||'', time_limit:e.time_limit }); setShowForm(true); }} style={{ flex:1, minWidth:'80px', padding:'9px', background:'#f1f5f9', color:'#475569', border:'none', borderRadius:'8px', cursor:'pointer', fontWeight:'600', fontSize:'13px' }}>Edit</button>
+                <button onClick={() => deleteExam(e.id)} style={{ padding:'9px 12px', background:'#fee2e2', color:'#dc2626', border:'none', borderRadius:'8px', cursor:'pointer', fontWeight:'600', fontSize:'13px' }}>🗑</button>
               </div>
             </div>
           ))}
         </div>
 
+        {/* Questions Panel */}
         {selectedExam && (
           <div style={{ background:'white', borderRadius:'14px', border:'1px solid #e2e8f0', overflow:'hidden' }}>
-            <div style={{ padding:'20px 24px', borderBottom:'1px solid #f1f5f9', background:'#f8fafc' }}>
-              <h3 style={{ margin:0, fontSize:'16px', fontWeight:'600', color:'#0f172a' }}>
-                Questions for: {exams.find(e => e.id === selectedExam)?.title} ({questions.length})
-              </h3>
+            <div style={{ padding:'16px 20px', borderBottom:'1px solid #f1f5f9', display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:'10px' }}>
+              <div>
+                <h2 style={{ margin:0, fontSize:'16px', fontWeight:'700', color:'#0f172a' }}>{selectedExam.title} — Questions</h2>
+                <p style={{ margin:0, fontSize:'13px', color:'#64748b' }}>{questions.length} questions</p>
+              </div>
+              <button onClick={() => setSelectedExam(null)} style={{ padding:'8px 16px', background:'#f1f5f9', color:'#475569', border:'none', borderRadius:'8px', cursor:'pointer', fontWeight:'600', fontSize:'13px' }}>← Back to Exams</button>
             </div>
-            <div style={{ padding:'24px' }}>
-              <form onSubmit={addQuestion} style={{ background:'#f8fafc', padding:'20px', borderRadius:'12px', marginBottom:'20px', border:'1px solid #e2e8f0' }}>
-                <h4 style={{ margin:'0 0 16px', color:'#0f172a' }}>Add New Question</h4>
-                <textarea style={{ ...inp, resize:'vertical', marginBottom:'12px', minHeight:'60px' }} placeholder="Question text *" value={qForm.text} onChange={e => setQForm({...qForm, text:e.target.value})} required />
-                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px', marginBottom:'12px' }}>
+
+            {/* Add Question Form */}
+            <div style={{ padding:'20px', borderBottom:'1px solid #f1f5f9', background:'#f8fafc' }}>
+              <h3 style={{ margin:'0 0 14px', fontSize:'14px', fontWeight:'600', color:'#374151' }}>Add Question</h3>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr', gap:'10px' }}>
+                <input placeholder="Question text" value={qForm.text} onChange={e => setQForm({...qForm, text:e.target.value})}
+                  style={{ padding:'10px 12px', border:'1px solid #e2e8f0', borderRadius:'8px', fontSize:'14px' }} />
+                <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(180px,1fr))', gap:'10px' }}>
                   {['a','b','c','d'].map(opt => (
-                    <input key={opt} style={inp} placeholder={`Option ${opt.toUpperCase()} *`} value={qForm[`option_${opt}`]} onChange={e => setQForm({...qForm, [`option_${opt}`]:e.target.value})} required />
+                    <input key={opt} placeholder={`Option ${opt.toUpperCase()}`} value={qForm[`option_${opt}`]} onChange={e => setQForm({...qForm, [`option_${opt}`]:e.target.value})}
+                      style={{ padding:'10px 12px', border:'1px solid #e2e8f0', borderRadius:'8px', fontSize:'14px' }} />
                   ))}
                 </div>
-                <div style={{ display:'flex', gap:'12px', alignItems:'center' }}>
-                  <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
-                    <label style={{ fontSize:'14px', fontWeight:'500', color:'#475569' }}>Correct Answer:</label>
-                    <select style={{ ...inp, width:'auto' }} value={qForm.correct_answer} onChange={e => setQForm({...qForm, correct_answer:e.target.value})}>
-                      <option>A</option><option>B</option><option>C</option><option>D</option>
-                    </select>
-                  </div>
-                  <button type="submit" style={{ padding:'10px 20px', background:'#6366f1', color:'white', border:'none', borderRadius:'8px', cursor:'pointer', fontWeight:'600' }}>+ Add Question</button>
+                <div style={{ display:'flex', gap:'10px', alignItems:'center', flexWrap:'wrap' }}>
+                  <select value={qForm.correct_answer} onChange={e => setQForm({...qForm, correct_answer:e.target.value})}
+                    style={{ padding:'10px 12px', border:'1px solid #e2e8f0', borderRadius:'8px', fontSize:'14px', flex:1, minWidth:'140px' }}>
+                    {['A','B','C','D'].map(o => <option key={o}>{o}</option>)}
+                  </select>
+                  <button onClick={addQuestion} disabled={loading} style={{ flex:1, minWidth:'120px', padding:'10px 20px', background:'linear-gradient(135deg,#6366f1,#8b5cf6)', color:'white', border:'none', borderRadius:'8px', cursor:'pointer', fontWeight:'600', fontSize:'14px' }}>
+                    {loading ? 'Adding...' : '+ Add Question'}
+                  </button>
                 </div>
-              </form>
+              </div>
+            </div>
 
+            {/* Questions List */}
+            <div style={{ padding:'16px 20px' }}>
               {questions.map((q, i) => (
-                <div key={q.id} style={{ padding:'16px', borderRadius:'10px', border:'1px solid #e2e8f0', marginBottom:'10px', display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
-                  <div style={{ flex:1 }}>
-                    <p style={{ margin:'0 0 8px', fontWeight:'600', color:'#0f172a', fontSize:'14px' }}>Q{i+1}. {q.text}</p>
-                    <div style={{ display:'flex', gap:'16px', flexWrap:'wrap' }}>
-                      {['a','b','c','d'].map(opt => (
-                        <span key={opt} style={{ fontSize:'13px', color: q.correct_answer === opt.toUpperCase() ? '#16a34a' : '#64748b', fontWeight: q.correct_answer === opt.toUpperCase() ? '700' : '400' }}>
-                          {q.correct_answer === opt.toUpperCase() ? '✅' : '○'} {opt.toUpperCase()}: {q[`option_${opt}`]}
-                        </span>
-                      ))}
-                    </div>
+                <div key={q.id} style={{ padding:'14px', borderRadius:'10px', border:'1px solid #f1f5f9', marginBottom:'10px', background:'#fafafa' }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:'10px' }}>
+                    <p style={{ margin:'0 0 10px', fontSize:'14px', fontWeight:'600', color:'#0f172a', flex:1 }}><span style={{ color:'#6366f1' }}>Q{i+1}.</span> {q.text}</p>
+                    <button onClick={() => deleteQuestion(q.id)} style={{ padding:'6px 10px', background:'#fee2e2', color:'#dc2626', border:'none', borderRadius:'6px', cursor:'pointer', fontSize:'12px', flexShrink:0 }}>🗑</button>
                   </div>
-                  <button onClick={() => deleteQuestion(q.id)} style={{ padding:'6px 10px', background:'#fff5f5', color:'#ef4444', border:'1px solid #fecaca', borderRadius:'6px', cursor:'pointer', fontSize:'12px', marginLeft:'12px' }}>Delete</button>
+                  <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(160px,1fr))', gap:'6px' }}>
+                    {['A','B','C','D'].map(opt => (
+                      <div key={opt} style={{ padding:'6px 10px', borderRadius:'6px', fontSize:'13px', background: q.correct_answer===opt ? '#dcfce7' : '#f1f5f9', color: q.correct_answer===opt ? '#166534' : '#475569', fontWeight: q.correct_answer===opt ? '600' : '400' }}>
+                        {opt}. {q[`option_${opt.toLowerCase()}`]} {q.correct_answer===opt && '✓'}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ))}
+              {questions.length === 0 && <p style={{ textAlign:'center', color:'#94a3b8', padding:'24px' }}>No questions yet. Add your first question above!</p>}
             </div>
           </div>
         )}
       </div>
+      <style>{`
+        @media (max-width: 768px) {
+          .main-content { margin-left: 0 !important; padding: 16px !important; padding-top: 60px !important; }
+        }
+      `}</style>
     </div>
   );
 }

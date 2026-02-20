@@ -1,52 +1,65 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import API from '../api/client';
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleLogin = async (e) => {
     e.preventDefault();
+    setLoading(true); setError('');
     try {
-      const res = await API.post(`/api/auth/login?email=${email}&password=${password}`);
-      localStorage.setItem('token', res.data.access_token);
-      localStorage.setItem('role', res.data.role);
-      localStorage.setItem('user_id', res.data.user_id);
-      localStorage.setItem('full_name', res.data.full_name);
-      if (res.data.role === 'admin') navigate('/admin');
-      else navigate('/student');
+      const params = new URLSearchParams({ email, password });
+      const res = await API.post(`/api/auth/login?${params}`);
+      const { access_token, role, user_id, full_name } = res.data;
+      localStorage.setItem('token', access_token);
+      localStorage.setItem('role', role);
+      localStorage.setItem('user_id', user_id);
+      localStorage.setItem('full_name', full_name);
+      navigate(role === 'admin' ? '/admin' : '/student');
     } catch {
       setError('Invalid email or password');
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div style={{width:'100vw', height:'100vh', display:'flex', justifyContent:'center', alignItems:'center', background:'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)'}}>
-      <div style={{background:'white', padding:'48px 40px', borderRadius:'20px', boxShadow:'0 20px 60px rgba(0,0,0,0.4)', width:'100%', maxWidth:'420px', margin:'0 20px'}}>
-        <div style={{textAlign:'center', marginBottom:'32px'}}>
-          <div style={{fontSize:'48px', marginBottom:'8px'}}>📝</div>
-          <h1 style={{fontSize:'28px', fontWeight:'700', color:'#1a1a2e'}}>ExamHub</h1>
-          <p style={{color:'#888', marginTop:'6px'}}>Online Exam Platform</p>
+    <div style={{ minHeight:'100vh', background:'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)', display:'flex', alignItems:'center', justifyContent:'center', padding:'16px' }}>
+      <div style={{ background:'white', borderRadius:'20px', padding:'clamp(24px, 5vw, 40px)', width:'100%', maxWidth:'420px', boxShadow:'0 25px 50px rgba(0,0,0,0.3)' }}>
+        <div style={{ textAlign:'center', marginBottom:'28px' }}>
+          <div style={{ fontSize:'40px', marginBottom:'12px' }}>📝</div>
+          <h1 style={{ margin:'0 0 6px', fontSize:'clamp(22px, 4vw, 28px)', fontWeight:'700', color:'#0f172a' }}>ExamHub</h1>
+          <p style={{ margin:0, color:'#64748b', fontSize:'14px' }}>Online Exam Platform</p>
         </div>
-        {error && <div style={{background:'#fff5f5', border:'1px solid #fed7d7', color:'#c53030', padding:'12px', borderRadius:'8px', marginBottom:'16px', fontSize:'14px', textAlign:'center'}}>{error}</div>}
+        {error && <div style={{ background:'#fee2e2', color:'#991b1b', padding:'12px', borderRadius:'10px', marginBottom:'16px', fontSize:'14px', textAlign:'center' }}>{error}</div>}
         <form onSubmit={handleLogin}>
-          <div style={{marginBottom:'16px'}}>
-            <label style={{display:'block', marginBottom:'6px', fontSize:'14px', fontWeight:'600', color:'#333'}}>Email</label>
-            <input type="email" placeholder="Enter your email" value={email} onChange={e => setEmail(e.target.value)} required style={{width:'100%', padding:'12px 16px', borderRadius:'10px', border:'2px solid #eee', fontSize:'15px', outline:'none'}} onFocus={e => e.target.style.border='2px solid #667eea'} onBlur={e => e.target.style.border='2px solid #eee'} />
+          <div style={{ marginBottom:'16px' }}>
+            <label style={{ display:'block', marginBottom:'6px', fontSize:'14px', fontWeight:'500', color:'#374151' }}>Email</label>
+            <input type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="Enter your email"
+              style={{ width:'100%', padding:'12px 14px', borderRadius:'10px', border:'1px solid #e2e8f0', fontSize:'16px', outline:'none', boxSizing:'border-box', transition:'border 0.2s' }}
+              onFocus={e => e.target.style.borderColor='#6366f1'}
+              onBlur={e => e.target.style.borderColor='#e2e8f0'}
+            />
           </div>
-          <div style={{marginBottom:'24px'}}>
-            <label style={{display:'block', marginBottom:'6px', fontSize:'14px', fontWeight:'600', color:'#333'}}>Password</label>
-            <input type="password" placeholder="Enter your password" value={password} onChange={e => setPassword(e.target.value)} required style={{width:'100%', padding:'12px 16px', borderRadius:'10px', border:'2px solid #eee', fontSize:'15px', outline:'none'}} onFocus={e => e.target.style.border='2px solid #667eea'} onBlur={e => e.target.style.border='2px solid #eee'} />
+          <div style={{ marginBottom:'24px' }}>
+            <label style={{ display:'block', marginBottom:'6px', fontSize:'14px', fontWeight:'500', color:'#374151' }}>Password</label>
+            <input type="password" value={password} onChange={e => setPassword(e.target.value)} required placeholder="Enter your password"
+              style={{ width:'100%', padding:'12px 14px', borderRadius:'10px', border:'1px solid #e2e8f0', fontSize:'16px', outline:'none', boxSizing:'border-box', transition:'border 0.2s' }}
+              onFocus={e => e.target.style.borderColor='#6366f1'}
+              onBlur={e => e.target.style.borderColor='#e2e8f0'}
+            />
           </div>
-          <button type="submit" style={{width:'100%', padding:'14px', background:'linear-gradient(135deg, #667eea, #764ba2)', color:'white', border:'none', borderRadius:'10px', fontSize:'16px', fontWeight:'700', cursor:'pointer'}}>
-            Login →
+          <button type="submit" disabled={loading} style={{ width:'100%', padding:'14px', background:'linear-gradient(135deg, #6366f1, #8b5cf6)', color:'white', border:'none', borderRadius:'10px', fontSize:'16px', fontWeight:'600', cursor:'pointer', opacity: loading ? 0.7 : 1 }}>
+            {loading ? 'Logging in...' : 'Login →'}
           </button>
         </form>
-        <p style={{textAlign:'center', marginTop:'20px', fontSize:'14px', color:'#888'}}>
-          New student? <Link to="/register" style={{color:'#667eea', fontWeight:'600'}}>Create Account</Link>
+        <p style={{ textAlign:'center', marginTop:'20px', fontSize:'14px', color:'#64748b' }}>
+          New student? <span onClick={() => navigate('/register')} style={{ color:'#6366f1', fontWeight:'600', cursor:'pointer' }}>Create Account</span>
         </p>
       </div>
     </div>
